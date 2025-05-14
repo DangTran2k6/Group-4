@@ -206,6 +206,7 @@ class SimplePhotoshopCV:
                 self.canvas.delete(self.rect_id)
                 self.rect_id = None
 
+
 if __name__ == "__main__":
     root = tk.Tk()
     app = SimplePhotoshopCV(root)
