@@ -5,6 +5,8 @@ import tkinter as tk
 from tkinter import ttk
 from tkinter import filedialog, messagebox
 from PIL import Image, ImageTk
+from tkinter.simpledialog import askfloat
+from PIL import ImageEnhance
 
 class SimplePhotoshopCV:
     def __init__(self, root):
@@ -34,7 +36,8 @@ class SimplePhotoshopCV:
         ttk.Button(left_frame, text="↩️ Undo", command=self.undo, style="Modern.TButton", width=20).pack(pady=2)
         ttk.Button(left_frame, text="🔄 Rotate Left", command=self.rotate_left, style="Modern.TButton", width=20).pack(pady=2)
         ttk.Button(left_frame, text="🔁 Rotate Right", command=self.rotate_right, style="Modern.TButton", width=20).pack(pady=2)
-        ttk.Button(left_frame, text="❌ Back", command=self.root.destroy, style="Modern.TButton", width=20).pack(pady=20)
+        ttk.Button(left_frame, text="❌ Back", command=self.root.destroy, style="Modern.TButton", width=20).pack(pady=2)
+
 
         self.canvas = tk.Canvas(main_frame, bg="gray")
         self.canvas.pack(side=tk.LEFT, expand=True, fill=tk.BOTH)
@@ -42,6 +45,7 @@ class SimplePhotoshopCV:
         self.canvas.bind("<ButtonPress-1>", self.on_mouse_down)
         self.canvas.bind("<B1-Motion>", self.on_mouse_drag)
         self.canvas.bind("<ButtonRelease-1>", self.on_mouse_up)
+
 
         right_frame = tk.Frame(main_frame)
         right_frame.pack(side=tk.RIGHT, fill=tk.Y, padx=10, pady=10)
@@ -54,6 +58,7 @@ class SimplePhotoshopCV:
         ttk.Button(right_frame, text="🔍 Sharpen", command=self.sharpen_image, style="Modern.TButton", width=20).pack(pady=2)
         ttk.Button(right_frame, text="🌗 Grayscale", command=self.to_grayscale, style="Modern.TButton", width=20).pack(pady=2)
         ttk.Button(right_frame, text="🌀 Invert Color", command=self.invert_colors, style="Modern.TButton", width=20).pack(pady=2)
+        ttk.Button(right_frame, text="🖌️ Highlight Area", command=self.highlight_area, style="Modern.TButton",     width=20).pack(pady=2)
 
     def open_image(self):
         file_path = filedialog.askopenfilename()
@@ -205,6 +210,69 @@ class SimplePhotoshopCV:
             if self.rect_id:
                 self.canvas.delete(self.rect_id)
                 self.rect_id = None
+
+    def highlight_area(self):
+            if self.processed_image is not None:
+                self.save_history()
+                # Tạo bản sao ảnh để vẽ
+                img = self.processed_image.copy()
+
+                # Tọa độ vùng cần tô: (x1, y1) đến (x2, y2)
+                x1, y1 = 100, 100
+                x2, y2 = 300, 200
+
+                # Màu (BGR): xanh lá cây
+                color = (0, 255, 0)
+
+                # Tô vùng bằng hình chữ nhật đặc
+                cv2.rectangle(img, (x1, y1), (x2, y2), color, thickness=-1)
+
+                # Pha trộn vùng tô vào ảnh gốc để nhìn xuyên mờ
+                alpha = 0.3  # Độ trong suốt (30%)
+                self.processed_image = cv2.addWeighted(img, alpha, self.processed_image, 1 - alpha, 0)
+
+                self.display_image(self.processed_image)
+
+    def on_mouse_press(self, event):
+        self.start_x = event.x
+        self.start_y = event.y
+
+    def on_mouse_drag(self, event):
+        # Tuỳ chọn: vẽ khung khi kéo chuột nếu muốn
+        pass
+
+    def on_mouse_release(self, event):
+        end_x = event.x
+        end_y = event.y
+
+        if self.processed_image is not None:
+            self.save_history()
+
+            # Chuyển toạ độ từ GUI về ảnh gốc (nếu ảnh đã resize khi hiển thị)
+            x1, y1 = min(self.start_x, end_x), min(self.start_y, end_y)
+            x2, y2 = max(self.start_x, end_x), max(self.start_y, end_y)
+
+            # Tô vùng đã chọn bằng hình chữ nhật bán trong suốt
+            img = self.processed_image.copy()
+            overlay = img.copy()
+            color = (0, 255, 0)  # Màu xanh lá
+            cv2.rectangle(overlay, (x1, y1), (x2, y2), color, -1)
+            alpha = 0.3  # Mức trong suốt
+
+            # Pha trộn
+            self.processed_image = cv2.addWeighted(overlay, alpha, img, 1 - alpha, 0)
+            self.display_image(self.processed_image)
+
+            # Tính tỉ lệ giữa ảnh gốc và ảnh đang hiển thị
+            scale_x = self.processed_image.shape[1] / self.tk_image.width()
+            scale_y = self.processed_image.shape[0] / self.tk_image.height()
+
+            # Chuyển đổi tọa độ chuột thành tọa độ ảnh gốc
+            x1 = int(min(self.start_x, end_x) * scale_x)
+            y1 = int(min(self.start_y, end_y) * scale_y)
+            x2 = int(max(self.start_x, end_x) * scale_x)
+            y2 = int(max(self.start_y, end_y) * scale_y)
+
 
 if __name__ == "__main__":
     root = tk.Tk()
